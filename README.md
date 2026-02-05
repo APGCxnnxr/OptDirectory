@@ -1,11 +1,7 @@
 # Offline Game Launcher
 
 # Known Bugs - Will fix in next release - 
-- Games do not load
-- Buttons in fullscreen are not in the right spot
-- Eaglercraft ( one of the main things i wanted to work ) Does not load
-- Ui Sometimes is unresponsive
-- Background freezes make computer "hang" for a few seconds
+-None as of right now
 
 
 This repository contains a single-file offline game launcher (launcher.html) and an example game (example-game.html). It is designed to be used on Chromium-based devices (Chromebook/Chrome) and works offline.
