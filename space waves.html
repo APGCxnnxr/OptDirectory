@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    /* Reset default browser margins and padding */
+    body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden; /* Hide potential scrollbars on the main page */
+    }
+
+    /* Style the iframe to cover the whole viewport */
+    iframe {
+        position: fixed; /* Position relative to the browser window */
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none; /* Remove default iframe border */
+        z-index: 999999; /* Ensure the iframe is on top of other content */
+    }
+</style>
+</head>
+<body>
+
+<!-- The iframe element -->
+<iframe src="https://space-waves.co" title="Space Waves">
+    Your browser does not support iframes.
+</iframe>
+
+</body>
+</html>
