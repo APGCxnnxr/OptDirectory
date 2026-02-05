@@ -148,6 +148,7 @@
       <div class="controls">
         <button id="pickFolderBtn">Add Folder</button>
         <button id="importFileBtn">Import File</button>
+        <button id="exportBtn" class="ghost">Export Portable</button>
         <button id="homeBtn" class="ghost">Home</button>
       </div>
     </header>
@@ -177,6 +178,7 @@
   <input id="fileInput" type="file" accept="text/html" style="display:none" />
 
   <script>
+    // This array is automatically populated when you use "Export Portable"
     const BUILT_IN_GAMES = [
       { 
         id:'counter', 
@@ -235,8 +237,6 @@
 
     // --- Icon Extraction Helper ---
     function findIconInHTML(html) {
-        // Looks for <link rel="icon" href="...">
-        // Only returns if it is a data URI or http link to prevent broken local links
         const match = html.match(/<link[^>]+rel=["'](?:shortcut )?icon["'][^>]+href=["'](.*?)["']/i);
         if (match && match[1]) {
             if (match[1].startsWith('data:') || match[1].startsWith('http')) {
@@ -310,7 +310,6 @@
           const file = await g.handle.getFile();
           content = await file.text();
         } else {
-          // Handle both old string format and new object format
           const record = await idbAction('readonly', s => s.get(id));
           content = (typeof record === 'object' && record.content) ? record.content : record;
         }
@@ -365,6 +364,53 @@
         renderTiles();
     }
 
+    // --- Export Logic ---
+    document.getElementById('exportBtn').onclick = async () => {
+        // 1. Gather all currently "Built-In" games
+        const gamesToExport = [...BUILT_IN_GAMES];
+        
+        // 2. Fetch all Imported games from DB
+        const records = await idbAction('readonly', s => s.getAll());
+        if (records && Array.isArray(records)) {
+            records.forEach((rec, i) => {
+               // Normalize
+               const content = (typeof rec === 'object' && rec.content) ? rec.content : rec;
+               const name = (typeof rec === 'object' && rec.name) ? rec.name : 'Game ' + i;
+               const icon = (typeof rec === 'object' && rec.icon) ? rec.icon : null;
+               
+               // Add as a built-in game structure
+               gamesToExport.push({
+                   id: 'portable-' + Date.now() + '-' + i,
+                   name: name,
+                   desc: 'Embedded Portable Game',
+                   srcdoc: content, // Bake content into srcdoc
+                   icon: icon
+               });
+            });
+        }
+
+        // 3. Get current HTML Source
+        let htmlSource = document.documentElement.outerHTML;
+
+        // 4. Regex Replace the BUILT_IN_GAMES array
+        // This regex looks for: const BUILT_IN_GAMES = [ ... ];
+        const regex = /const BUILT_IN_GAMES = \[([\s\S]*?)\];/;
+        const newScript = `const BUILT_IN_GAMES = ${JSON.stringify(gamesToExport)};`;
+        
+        htmlSource = htmlSource.replace(regex, newScript);
+
+        // 5. Trigger Download
+        const blob = new Blob([htmlSource], {type: 'text/html'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Portable_Game_Launcher.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     // --- File Handling ---
     document.getElementById('importFileBtn').onclick = () => document.getElementById('fileInput').click();
     
@@ -373,15 +419,13 @@
       if (!file) return;
       const text = await file.text();
       const id = 'import-' + Date.now();
-      
-      // Try to find icon in HTML
       const embeddedIcon = findIconInHTML(text);
 
       const record = { 
           name: file.name, 
           content: text, 
           created: Date.now(),
-          icon: embeddedIcon // Save detected icon
+          icon: embeddedIcon 
       };
       
       await idbAction('readwrite', s => s.put(record, id));
@@ -402,19 +446,16 @@
       if (!folderHandle) return;
       const folderGames = [];
       
-      // First pass: collect all files to map
       const fileMap = new Map();
       for await (const [name, handle] of folderHandle.entries()) {
           fileMap.set(name, handle);
       }
 
-      // Second pass: Identify HTML games and look for matching images
       for (const [name, handle] of fileMap) {
         if (name.endsWith('.html')) {
             const baseName = name.substring(0, name.lastIndexOf('.'));
             let iconUrl = null;
 
-            // Check for matching image files (e.g. game.html -> game.png)
             const extensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
             for (const ext of extensions) {
                 const imgName = baseName + ext;
